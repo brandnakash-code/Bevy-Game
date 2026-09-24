@@ -187,8 +187,17 @@ impl ChunkManager {
         self.chunks.insert(chunk_pos, chunk);
     }
 
-    fn update_mesh(&mut self, chunk_pos: IVec2, meshes: &mut Assets<Mesh>) -> MultiMeshMap {
-        todo!()
+    fn update_mesh(&mut self, chunk_pos: IVec2, meshes: &mut Assets<Mesh>) -> Option<MultiMeshMap> {
+        let Some(chunk) = self.chunks.get(&chunk_pos) else {
+            return None
+        };
+        
+        let mut chunk_mesh_map: MultiMeshMap = HashMap::new();
+        for (block, mesh) in chunk.mesh() {
+            chunk_mesh_map.insert(block, chunk)
+        }
+
+        todo!();
     }
 
     /// Adds a mesh and the given chunk to the chunk manager, and returns a HashMap<Block, Handle<Mesh>>
