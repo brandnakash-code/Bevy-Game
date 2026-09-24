@@ -5,7 +5,8 @@ use std::{ cmp::{ max, min }, collections::HashMap };
 #[allow(unused)]
 use thiserror::Error;
 
-use crate::lib_root::block::{ Block, Texture };
+use crate::lib_root::block::Block;
+use crate::lib_root::textures::Texture;
 use crate::lib_root::consts::{ CHUNK_SIZE, CHUNK_HEIGHT };
 
 type Vertex = [f32; 3];

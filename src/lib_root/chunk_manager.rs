@@ -8,7 +8,8 @@ use crate::lib_root::{
     chunk::Chunk,
     chunk_gen::{ generate, get_chunk_positions },
     consts::{ CHUNK_SIZE, RENDER_DISTANCE },
-    block::{ Block, Textures },
+    block::Block,
+    textures::Textures,
 };
 
 type MultiMeshMap = HashMap<Block, Handle<Mesh>>;

@@ -2,7 +2,7 @@ use bevy::{ input::mouse::MouseMotion, prelude::*, window::{ CursorGrabMode, Cur
 
 use bevy_game::lib_root::chunk_gen::world_to_chunk_coords;
 use bevy_game::lib_root::chunk_manager::ChunkManager;
-use bevy_game::lib_root::block::Textures;
+use bevy_game::lib_root::textures::Textures;
 
 #[derive(Component)]
 struct PlayerCamera;
