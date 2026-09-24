@@ -190,7 +190,7 @@ impl ChunkManager {
         &mut self,
         chunk_pos: IVec2,
         meshes: &mut Assets<Mesh>
-    ) -> HashMap<Block, Handle<Mesh>>;
+    ) -> HashMap<Block, Handle<Mesh>> {}
 
     /// Adds a mesh and the given chunk to the chunk manager, and returns a HashMap<Block, Handle<Mesh>>
     fn mesh_and_add_chunk(
