@@ -9,13 +9,13 @@ use crate::lib_root::{
     block::Block,
 };
 
-type ChunkMeshMap = HashMap<Block, Handle<Mesh>>;
+type MultiMeshMap = HashMap<Block, Handle<Mesh>>;
 
 #[derive(Resource, Default)]
 pub struct ChunkManager {
     entities: HashMap<IVec2, Entity>,
     chunks: HashMap<IVec2, Chunk>,
-    meshes: HashMap<IVec2, HashMap<Block, Handle<Mesh>>>,
+    meshes: HashMap<IVec2, MultiMeshMap>,
     pending: HashMap<IVec2, Task<Chunk>>,
     center: Option<IVec2>,
 }
@@ -66,17 +66,17 @@ impl ChunkManager {
     /// Loads a chunk that has been generated, meshed or unmeshed, and returns an entity.
     fn load_cached_chunk(
         &mut self,
-        chunk_position: IVec2,
+        chunk_pos: IVec2,
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<StandardMaterial>
     ) -> Entity {
         // cached chunk has two states: meshed and unmeshed, and returns an Entity.
-        let mesh = if let Some(mesh) = self.meshes.get(&chunk_position) {
+        let mesh = if let Some(mesh) = self.meshes.get(&chunk_pos) {
             mesh.clone()
         } else {
-            let mesh = meshes.add(self.chunks[&chunk_position].mesh());
-            self.meshes.insert(chunk_position, mesh.clone());
+            let mesh = meshes.add(self.chunks[&chunk_pos].mesh());
+            self.meshes.insert(chunk_pos, mesh.clone());
             mesh
         };
 
@@ -90,14 +90,15 @@ impl ChunkManager {
                     })
                 ),
                 Transform::from_xyz(
-                    (chunk_position.x as f32) * (CHUNK_SIZE as f32),
+                    (chunk_pos.x as f32) * (CHUNK_SIZE as f32),
                     0.0,
-                    (chunk_position.y as f32) * (CHUNK_SIZE as f32)
+                    (chunk_pos.y as f32) * (CHUNK_SIZE as f32)
                 ),
             ))
             .id()
     }
 
+    /// returns the center.
     pub fn center(&self) -> Option<IVec2> {
         self.center
     }
@@ -182,30 +183,25 @@ impl ChunkManager {
     }
 
     /// Adds a chunk to the chunk manager
-    fn add_chunk(&mut self, chunk_position: IVec2, chunk: Chunk) {
-        self.chunks.insert(chunk_position, chunk);
+    fn add_chunk(&mut self, chunk_pos: IVec2, chunk: Chunk) {
+        self.chunks.insert(chunk_pos, chunk);
     }
 
-    fn update_mesh(
-        &mut self,
-        chunk_pos: IVec2,
-        meshes: &mut Assets<Mesh>
-    ) -> HashMap<Block, Handle<Mesh>>;
+    fn update_mesh(&mut self, chunk_pos: IVec2, meshes: &mut Assets<Mesh>) -> MultiMeshMap {
+        todo!()
+    }
 
     /// Adds a mesh and the given chunk to the chunk manager, and returns a HashMap<Block, Handle<Mesh>>
-    fn mesh_and_add_chunk(
+    fn add_chunk_and_mesh(
         &mut self,
-        chunk_position: IVec2,
+        chunk_pos: IVec2,
         chunk: Chunk,
         meshes: &mut Assets<Mesh>
-    ) -> ChunkMeshMap {
-        let mut chunk_mesh_map: ChunkMeshMap = HashMap::new();
-        for (block, mesh) in chunk.mesh() {
-            chunk_mesh_map.insert(block, meshes.add(mesh));
-        }
+    ) -> MultiMeshMap {
+        self.chunks.insert(chunk_pos, chunk);
 
-        self.chunks.insert(chunk_position, chunk);
-        self.meshes.insert(chunk_position, chunk_mesh_map.clone());
+        let chunk_mesh_map: MultiMeshMap = self.update_mesh(chunk_pos, meshes);
+        self.meshes.insert(chunk_pos, chunk_mesh_map.clone());
 
         chunk_mesh_map
     }
