@@ -1,6 +1,8 @@
 use bevy::{ prelude::*, tasks::{ AsyncComputeTaskPool, Task } };
-use futures_lite::future;
+
 use std::collections::{ HashMap, HashSet };
+
+use futures_lite::future;
 
 use crate::lib_root::{
     chunk::Chunk,
@@ -14,8 +16,8 @@ type MultiMeshMap = HashMap<Block, Handle<Mesh>>;
 #[derive(Resource, Default)]
 pub struct ChunkManager {
     entities: HashMap<IVec2, Entity>,
-    chunks: HashMap<IVec2, Chunk>,
     meshes: HashMap<IVec2, MultiMeshMap>,
+    chunks: HashMap<IVec2, Chunk>,
     pending: HashMap<IVec2, Task<Chunk>>,
     center: Option<IVec2>,
 }
@@ -32,32 +34,11 @@ impl ChunkManager {
         }
     }
 
-    /// Takes a chunk, meshes it, and returns an entity.
-    #[allow(clippy::too_many_arguments)] // SHUT THE FUCK UP CLIPPY I NEED ALL THESE OKAY
-    fn load_new_chunk(
-        &mut self,
-        chunk_pos: IVec2,
-        chunk: Chunk,
-        meshes: &mut Assets<Mesh>,
-        commands: &mut Commands,
-        materials: &mut Assets<StandardMaterial>,
-        textures: &mut Textures,
-        asset_server: &AssetServer
-    ) -> Entity {
-        let mesh_map: MultiMeshMap = self.add_chunk_and_mesh(chunk_pos, chunk, meshes);
-
-        self.load_chunk_from_meshmap(
-            chunk_pos,
-            mesh_map,
-            commands,
-            materials,
-            textures,
-            asset_server
-        )
-    }
-
     /// Loads an already generated chunk, meshes it if needed, and returns an entity.
-    fn load_existing_chunk(
+    ///
+    /// # Panics
+    /// Panics if chunk does not exist.
+    fn load_chunk(
         &mut self,
         chunk_pos: IVec2,
         meshes: &mut Assets<Mesh>,
@@ -69,7 +50,7 @@ impl ChunkManager {
         let mesh_map: MultiMeshMap = if let Some(mesh_map) = self.meshes.get(&chunk_pos) {
             mesh_map.clone()
         } else {
-            self.update_mesh(chunk_pos, meshes).expect("chunk should already exist")
+            self.update_mesh(chunk_pos, meshes).expect("chunk should exist")
         };
 
         self.load_chunk_from_meshmap(
@@ -82,7 +63,7 @@ impl ChunkManager {
         )
     }
 
-    /// read the fucking function name
+    /// Loads a chunk from a meshmap, regardless of the state of the chunk there.
     fn load_chunk_from_meshmap(
         &mut self,
         chunk_pos: IVec2,
@@ -142,17 +123,15 @@ impl ChunkManager {
 
         for new_chunk_pos in new_chunk_positions {
             if
-                !self.entities.contains_key(&new_chunk_pos) && // not already loaded
-                !self.pending.contains_key(&new_chunk_pos) && // not scheduled
-                !self.chunks.contains_key(&new_chunk_pos) // not generated
+                self.entities.contains_key(&new_chunk_pos) || // already loaded
+                self.pending.contains_key(&new_chunk_pos) // already pending
             {
-                self.schedule_chunk_gen(new_chunk_pos);
-            } else if
-                self.chunks.contains_key(&new_chunk_pos) &&
-                !self.entities.contains_key(&new_chunk_pos)
-            {
-                // generated already
-                let entity = self.load_existing_chunk(
+                continue;
+            }
+
+            // already generated
+            if self.chunks.contains_key(&new_chunk_pos) {
+                let entity = self.load_chunk(
                     new_chunk_pos,
                     meshes,
                     commands,
@@ -161,7 +140,11 @@ impl ChunkManager {
                     asset_server
                 );
                 self.entities.insert(new_chunk_pos, entity);
+                continue;
             }
+
+            // not loaded, not pending, not generated
+            self.schedule_chunk_gen(new_chunk_pos);
         }
 
         self.center = Some(center);
@@ -192,16 +175,15 @@ impl ChunkManager {
 
         for (chunk_pos, chunk) in completed {
             self.pending.remove(&chunk_pos);
+            self.add_chunk(chunk_pos, chunk);
 
             // Don't mesh and move on if out of range when already generated
             if !render.contains(&chunk_pos) {
-                self.add_chunk(chunk_pos, chunk);
                 continue;
             }
 
-            let entity = self.load_new_chunk(
+            let entity = self.load_chunk(
                 chunk_pos,
-                chunk,
                 meshes,
                 commands,
                 materials,
@@ -224,9 +206,9 @@ impl ChunkManager {
         self.pending.insert(chunk_pos, task);
     }
 
-    /// Adds a chunk.
-    fn add_chunk(&mut self, chunk_pos: IVec2, chunk: Chunk) {
-        self.chunks.insert(chunk_pos, chunk);
+    /// Adds a chunk, returns the overwritten Chunk if there was one.
+    fn add_chunk(&mut self, chunk_pos: IVec2, chunk: Chunk) -> Option<Chunk> {
+        self.chunks.insert(chunk_pos, chunk)
     }
 
     /// Updates a mesh for a chunk, returns None if the chunk doesn't exist.
@@ -243,16 +225,5 @@ impl ChunkManager {
 
         self.meshes.insert(chunk_pos, chunk_mesh_map.clone());
         Some(chunk_mesh_map)
-    }
-
-    /// Adds a mesh and a chunk.
-    fn add_chunk_and_mesh(
-        &mut self,
-        chunk_pos: IVec2,
-        chunk: Chunk,
-        meshes: &mut Assets<Mesh>
-    ) -> MultiMeshMap {
-        self.chunks.insert(chunk_pos, chunk);
-        self.update_mesh(chunk_pos, meshes).expect("just created chunk, should exist")
     }
 }

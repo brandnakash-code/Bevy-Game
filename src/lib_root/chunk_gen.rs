@@ -1,6 +1,7 @@
+use bevy::prelude::*;
+
 use std::collections::HashSet;
 
-use bevy::prelude::*;
 use noise::{ NoiseFn, Perlin };
 
 use crate::lib_root::chunk::Chunk;
@@ -19,9 +20,10 @@ use crate::lib_root::consts::{
     WORLD_SCALE,
 };
 
-const SPACES: usize = CHUNK_SIZE.div_ceil(NOISE_INTERPOLATION);
 type InterpolatedNoiseMap = [[f64; SPACES]; SPACES];
 type NoiseMap = [[f64; CHUNK_SIZE]; CHUNK_SIZE];
+
+const SPACES: usize = CHUNK_SIZE.div_ceil(NOISE_INTERPOLATION);
 
 pub fn local_to_world_x(a: usize, chunk_coords: IVec2) -> i32 {
     chunk_coords.x * (CHUNK_SIZE as i32) + (a as i32)
