@@ -4,10 +4,11 @@ use std::{ cmp::{ max, min }, collections::HashMap };
 #[allow(unused)]
 use thiserror::Error;
 
-use crate::lib_root::block::{ Block };
+use crate::lib_root::block::{ Block, Texture };
 use crate::lib_root::consts::{ CHUNK_SIZE, CHUNK_HEIGHT };
 
 type Vertex = [f32; 3];
+type RawMeshMap = HashMap<Block, Mesh>;
 
 fn order(a: usize, b: usize) -> std::ops::RangeInclusive<usize> {
     min(a, b)..=max(a, b)
@@ -21,6 +22,21 @@ struct OutOfChunkError {
     range: (usize, usize, usize),
 }
 
+struct TriangleData {
+    positions: Vec<Vertex>,
+    normals: Vec<Vertex>,
+    indices: Vec<u32>,
+}
+
+impl TriangleData {
+    fn mesh(self) -> Mesh {
+        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals)
+            .with_inserted_indices(Indices::U32(self.indices))
+    }
+}
+
 #[derive(Resource)]
 pub struct Chunk {
     blocks: [[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE],
@@ -31,98 +47,56 @@ impl Chunk {
         Chunk { blocks: [[[Block::Air; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE] }
     }
 
-    pub fn mesh(&self) -> HashMap<Block, Mesh> {
-        let mut positions: Vec<Vertex> = Vec::new();
-        let mut normals: Vec<Vertex> = Vec::new();
-        let mut indices: Vec<u32> = Vec::new();
+    pub fn mesh(&self) -> RawMeshMap {
+        let mut triangle_map: HashMap<Block, TriangleData> = HashMap::new();
 
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_HEIGHT {
                 for z in 0..CHUNK_SIZE {
-                    if let None = self.blocks[x][y][z]. {
+                    let block = self.blocks[x][y][z];
+
+                    if !block.culls() || matches!(block.texture(), Texture::Empty) {
                         continue;
                     }
 
+                    let data = triangle_map.entry(block).or_insert_with(|| TriangleData {
+                        positions: Vec::new(),
+                        normals: Vec::new(),
+                        indices: Vec::new(),
+                    });
+
                     // Check every direction.
                     if !self.culls((x as isize) + 1, y as isize, z as isize) {
-                        add_face(
-                            &mut positions,
-                            &mut normals,
-                            &mut indices,
-                            x as f32,
-                            y as f32,
-                            z as f32,
-                            Direction::PosX
-                        );
+                        add_face(data, x, y, z, Direction::PosX);
                     }
 
                     if !self.culls((x as isize) - 1, y as isize, z as isize) {
-                        add_face(
-                            &mut positions,
-                            &mut normals,
-                            &mut indices,
-                            x as f32,
-                            y as f32,
-                            z as f32,
-                            Direction::NegX
-                        );
+                        add_face(data, x, y, z, Direction::NegX);
                     }
 
                     if !self.culls(x as isize, (y as isize) + 1, z as isize) {
-                        add_face(
-                            &mut positions,
-                            &mut normals,
-                            &mut indices,
-                            x as f32,
-                            y as f32,
-                            z as f32,
-                            Direction::PosY
-                        );
+                        add_face(data, x, y, z, Direction::PosY);
                     }
 
                     if !self.culls(x as isize, (y as isize) - 1, z as isize) {
-                        add_face(
-                            &mut positions,
-                            &mut normals,
-                            &mut indices,
-                            x as f32,
-                            y as f32,
-                            z as f32,
-                            Direction::NegY
-                        );
+                        add_face(data, x, y, z, Direction::NegY);
                     }
 
                     if !self.culls(x as isize, y as isize, (z as isize) + 1) {
-                        add_face(
-                            &mut positions,
-                            &mut normals,
-                            &mut indices,
-                            x as f32,
-                            y as f32,
-                            z as f32,
-                            Direction::PosZ
-                        );
+                        add_face(data, x, y, z, Direction::PosZ);
                     }
 
                     if !self.culls(x as isize, y as isize, (z as isize) - 1) {
-                        add_face(
-                            &mut positions,
-                            &mut normals,
-                            &mut indices,
-                            x as f32,
-                            y as f32,
-                            z as f32,
-                            Direction::NegZ
-                        );
+                        add_face(data, x, y, z, Direction::NegZ);
                     }
                 }
             }
         }
 
-        Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_indices(Indices::U32(indices))
+        triangle_map
+            .into_iter()
+            .map(|(block, data)| (block, data.mesh()))
+            .collect()
     }
 
     pub fn set(&mut self, x: usize, y: usize, z: usize, block: Block) {
@@ -199,16 +173,9 @@ enum Direction {
     NegZ,
 }
 
-fn add_face(
-    positions: &mut Vec<Vertex>,
-    normals: &mut Vec<Vertex>,
-    indices: &mut Vec<u32>,
-    x: f32,
-    y: f32,
-    z: f32,
-    direction: Direction
-) {
-    let start = positions.len() as u32;
+fn add_face(data: &mut TriangleData, x: usize, y: usize, z: usize, direction: Direction) {
+    let start = data.positions.len() as u32;
+    let (x, y, z) = (x as f32, y as f32, z as f32);
 
     let (vertices, normal) = match direction {
         //
@@ -319,9 +286,9 @@ fn add_face(
             ),
     };
 
-    positions.extend(vertices);
-    normals.extend([normal; 4]);
+    data.positions.extend(vertices);
+    data.normals.extend([normal; 4]);
 
     // Two triangles
-    indices.extend([start, start + 1, start + 2, start, start + 2, start + 3]);
+    data.indices.extend([start, start + 1, start + 2, start, start + 2, start + 3]);
 }

@@ -2,6 +2,7 @@ use bevy::{ input::mouse::MouseMotion, prelude::*, window::{ CursorGrabMode, Cur
 
 use bevy_game::lib_root::chunk_gen::world_to_chunk_coords;
 use bevy_game::lib_root::chunk_manager::ChunkManager;
+use bevy_game::lib_root::block::Textures;
 
 #[derive(Component)]
 struct PlayerCamera;
@@ -11,6 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .init_resource::<ChunkManager>()
+        .init_resource::<Textures>()
         .add_systems(Update, (
             camera_movement,
             update_visible_chunks,
@@ -46,7 +48,9 @@ fn update_visible_chunks(
     player_query: Query<&Transform, With<PlayerCamera>>,
     mut chunk_manager: ResMut<ChunkManager>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut textures: ResMut<Textures>,
+    asset_server: Res<AssetServer>
 ) {
     let Ok(player_transform) = player_query.single() else {
         return;
@@ -54,20 +58,35 @@ fn update_visible_chunks(
 
     let player_chunk = world_to_chunk_coords(player_transform.translation);
 
-    if chunk_manager.center() == Some(player_chunk) {
+    if let Some(center) = chunk_manager.center() && center == player_chunk {
         return;
     }
 
-    chunk_manager.set_center(&mut commands, player_chunk, &mut meshes, &mut materials);
+    chunk_manager.set_center(
+        player_chunk,
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        &mut textures,
+        &asset_server
+    );
 }
 
 fn finish_chunk_generation(
     mut commands: Commands,
     mut chunk_manager: ResMut<ChunkManager>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut textures: ResMut<Textures>,
+    asset_server: Res<AssetServer>
 ) {
-    chunk_manager.poll_generation_tasks(&mut commands, &mut meshes, &mut materials);
+    chunk_manager.poll_generation_tasks(
+        &mut commands,
+        &mut meshes,
+        &mut materials,
+        &mut textures,
+        &asset_server
+    );
 }
 
 fn camera_movement(

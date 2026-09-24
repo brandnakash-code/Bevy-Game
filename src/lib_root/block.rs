@@ -22,14 +22,11 @@ impl Texture {
     }
 }
 
-struct Textures(HashMap<Block, Option<Handle<StandardMaterial>>>);
+#[derive(Resource, Default)]
+pub struct Textures(HashMap<Block, Option<Handle<StandardMaterial>>>);
 
 impl Textures {
-    fn new() -> Self {
-        Textures(HashMap::new())
-    }
-
-    fn get(
+    pub fn get(
         &mut self,
         block: Block,
         asset_server: &AssetServer,
@@ -64,10 +61,10 @@ impl Block {
         }
     }
 
-    const fn texture(self) -> Texture {
+    pub const fn texture(self) -> Texture {
         match self {
             Block::Air => Texture::Empty,
-            Block::Block => Texture::Path("grass.jpg"),
+            Block::Block => Texture::Path("grass.png"),
         }
     }
 }

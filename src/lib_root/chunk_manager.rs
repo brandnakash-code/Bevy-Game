@@ -6,7 +6,7 @@ use crate::lib_root::{
     chunk::Chunk,
     chunk_gen::{ generate, get_chunk_positions },
     consts::{ CHUNK_SIZE, RENDER_DISTANCE },
-    block::Block,
+    block::{ Block, Textures },
 };
 
 type MultiMeshMap = HashMap<Block, Handle<Mesh>>;
@@ -22,13 +22,7 @@ pub struct ChunkManager {
 
 impl ChunkManager {
     pub fn new() -> Self {
-        ChunkManager {
-            entities: HashMap::new(),
-            chunks: HashMap::new(),
-            meshes: HashMap::new(),
-            pending: HashMap::new(),
-            center: None,
-        }
+        ChunkManager::default()
     }
 
     /// Removes a chunk from Entities, but keeps it's mesh and block data.
@@ -39,62 +33,83 @@ impl ChunkManager {
     }
 
     /// Takes a chunk, meshes it, and returns an entity.
-    fn load_chunk(
+    #[allow(clippy::too_many_arguments)] // SHUT THE FUCK UP CLIPPY I NEED ALL THESE OKAY
+    fn load_new_chunk(
         &mut self,
-        chunk_position: IVec2,
+        chunk_pos: IVec2,
         chunk: Chunk,
         meshes: &mut Assets<Mesh>,
         commands: &mut Commands,
-        materials: &mut Assets<StandardMaterial>
+        materials: &mut Assets<StandardMaterial>,
+        textures: &mut Textures,
+        asset_server: &AssetServer
     ) -> Entity {
-        commands
-            .spawn((
-                Transform::from_xyz(
-                    (chunk_position.x as f32) * (CHUNK_SIZE as f32),
-                    0.0,
-                    (chunk_position.y as f32) * (CHUNK_SIZE as f32)
-                ),
-            ))
-            .with_children(|parent| {
-                for (block, mesh) in self.mesh_and_add_chunk {
-                    todo!();
-                }
-            })
-            .id()
+        let mesh_map: MultiMeshMap = self.add_chunk_and_mesh(chunk_pos, chunk, meshes);
+
+        self.load_chunk_from_meshmap(
+            chunk_pos,
+            mesh_map,
+            commands,
+            materials,
+            textures,
+            asset_server
+        )
     }
 
-    /// Loads a chunk that has been generated, meshed or unmeshed, and returns an entity.
-    fn load_cached_chunk(
+    /// Loads an already generated chunk, meshes it if needed, and returns an entity.
+    fn load_existing_chunk(
         &mut self,
         chunk_pos: IVec2,
-        commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<StandardMaterial>
+        commands: &mut Commands,
+        materials: &mut Assets<StandardMaterial>,
+        textures: &mut Textures,
+        asset_server: &AssetServer
     ) -> Entity {
-        // cached chunk has two states: meshed and unmeshed, and returns an Entity.
-        let mesh = if let Some(mesh) = self.meshes.get(&chunk_pos) {
-            mesh.clone()
+        let mesh_map: MultiMeshMap = if let Some(mesh_map) = self.meshes.get(&chunk_pos) {
+            mesh_map.clone()
         } else {
-            let mesh = meshes.add(self.chunks[&chunk_pos].mesh());
-            self.meshes.insert(chunk_pos, mesh.clone());
-            mesh
+            self.update_mesh(chunk_pos, meshes).expect("chunk should already exist")
         };
 
+        self.load_chunk_from_meshmap(
+            chunk_pos,
+            mesh_map,
+            commands,
+            materials,
+            textures,
+            asset_server
+        )
+    }
+
+    /// read the fucking function name
+    fn load_chunk_from_meshmap(
+        &mut self,
+        chunk_pos: IVec2,
+        mesh_map: MultiMeshMap,
+        commands: &mut Commands,
+        materials: &mut Assets<StandardMaterial>,
+        textures: &mut Textures,
+        asset_server: &AssetServer
+    ) -> Entity {
         commands
             .spawn((
-                Mesh3d(mesh),
-                MeshMaterial3d(
-                    materials.add(StandardMaterial {
-                        base_color: Color::srgb(0.3, 0.7, 0.3),
-                        ..default()
-                    })
-                ),
                 Transform::from_xyz(
                     (chunk_pos.x as f32) * (CHUNK_SIZE as f32),
                     0.0,
                     (chunk_pos.y as f32) * (CHUNK_SIZE as f32)
                 ),
+                Visibility::default(),
             ))
+            .with_children(|parent| {
+                for (block, mesh) in mesh_map {
+                    let Some(material) = textures.get(block, asset_server, materials) else {
+                        continue;
+                    };
+
+                    parent.spawn((Mesh3d(mesh), MeshMaterial3d(material)));
+                }
+            })
             .id()
     }
 
@@ -103,12 +118,15 @@ impl ChunkManager {
         self.center
     }
 
+    /// Loads chunks in a square around the center, schedules non existing chunks to be generated.
     pub fn set_center(
         &mut self,
-        commands: &mut Commands,
         center: IVec2,
+        commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<StandardMaterial>
+        materials: &mut Assets<StandardMaterial>,
+        textures: &mut Textures,
+        asset_server: &AssetServer
     ) {
         if let Some(current_center) = self.center && current_center == center {
             return;
@@ -122,58 +140,75 @@ impl ChunkManager {
             }
         }
 
-        for new_chunk_position in new_chunk_positions {
+        for new_chunk_pos in new_chunk_positions {
             if
-                !self.entities.contains_key(&new_chunk_position) && // not already loaded
-                !self.pending.contains_key(&new_chunk_position) && // not scheduled
-                !self.chunks.contains_key(&new_chunk_position) // not generated
+                !self.entities.contains_key(&new_chunk_pos) && // not already loaded
+                !self.pending.contains_key(&new_chunk_pos) && // not scheduled
+                !self.chunks.contains_key(&new_chunk_pos) // not generated
             {
-                let task_pool = AsyncComputeTaskPool::get();
-                let task = task_pool.spawn(async move { generate(new_chunk_position) });
-                self.pending.insert(new_chunk_position, task);
-            } else if self.chunks.contains_key(&new_chunk_position) {
+                self.schedule_chunk_gen(new_chunk_pos);
+            } else if
+                self.chunks.contains_key(&new_chunk_pos) &&
+                !self.entities.contains_key(&new_chunk_pos)
+            {
                 // generated already
-                let entity = self.load_cached_chunk(
-                    new_chunk_position,
-                    commands,
+                let entity = self.load_existing_chunk(
+                    new_chunk_pos,
                     meshes,
-                    materials
+                    commands,
+                    materials,
+                    textures,
+                    asset_server
                 );
-                self.entities.insert(new_chunk_position, entity);
+                self.entities.insert(new_chunk_pos, entity);
             }
         }
 
         self.center = Some(center);
     }
 
+    /// Generates scheduled chunks.
     pub fn poll_generation_tasks(
         &mut self,
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
-        materials: &mut Assets<StandardMaterial>
+        materials: &mut Assets<StandardMaterial>,
+        textures: &mut Textures,
+        asset_server: &AssetServer
     ) {
-        let mut completed = Vec::new();
+        let Some(center) = self.center else {
+            return;
+        };
 
-        for (&chunk_position, task) in &mut self.pending {
+        let mut completed = HashMap::new();
+
+        for (&chunk_pos, task) in &mut self.pending {
             if let Some(chunk) = future::block_on(future::poll_once(task)) {
-                completed.push((chunk_position, chunk));
+                completed.insert(chunk_pos, chunk);
             }
         }
 
-        for (chunk_position, chunk) in completed {
-            self.pending.remove(&chunk_position);
+        let render = get_chunk_positions(center, RENDER_DISTANCE);
 
-            let Some(center) = self.center else {
-                continue;
-            };
+        for (chunk_pos, chunk) in completed {
+            self.pending.remove(&chunk_pos);
 
-            if !get_chunk_positions(center, RENDER_DISTANCE).contains(&chunk_position) {
-                self.add_chunk(chunk_position, chunk);
+            // Don't mesh and move on if out of range when already generated
+            if !render.contains(&chunk_pos) {
+                self.add_chunk(chunk_pos, chunk);
                 continue;
             }
 
-            let entity = self.load_chunk(chunk_position, chunk, meshes, commands, materials);
-            self.entities.insert(chunk_position, entity);
+            let entity = self.load_new_chunk(
+                chunk_pos,
+                chunk,
+                meshes,
+                commands,
+                materials,
+                textures,
+                asset_server
+            );
+            self.entities.insert(chunk_pos, entity);
         }
     }
 
@@ -182,25 +217,35 @@ impl ChunkManager {
         self.entities.keys().cloned().collect()
     }
 
-    /// Adds a chunk to the chunk manager
+    /// Schedules a chunk to be generated.
+    fn schedule_chunk_gen(&mut self, chunk_pos: IVec2) {
+        let task_pool = AsyncComputeTaskPool::get();
+        let task = task_pool.spawn(async move { generate(chunk_pos) });
+        self.pending.insert(chunk_pos, task);
+    }
+
+    /// Adds a chunk.
     fn add_chunk(&mut self, chunk_pos: IVec2, chunk: Chunk) {
         self.chunks.insert(chunk_pos, chunk);
     }
 
+    /// Updates a mesh for a chunk, returns None if the chunk doesn't exist.
     fn update_mesh(&mut self, chunk_pos: IVec2, meshes: &mut Assets<Mesh>) -> Option<MultiMeshMap> {
         let Some(chunk) = self.chunks.get(&chunk_pos) else {
-            return None
+            self.meshes.remove(&chunk_pos);
+            return None;
         };
-        
+
         let mut chunk_mesh_map: MultiMeshMap = HashMap::new();
         for (block, mesh) in chunk.mesh() {
-            chunk_mesh_map.insert(block, chunk)
+            chunk_mesh_map.insert(block, meshes.add(mesh));
         }
 
-        todo!();
+        self.meshes.insert(chunk_pos, chunk_mesh_map.clone());
+        Some(chunk_mesh_map)
     }
 
-    /// Adds a mesh and the given chunk to the chunk manager, and returns a HashMap<Block, Handle<Mesh>>
+    /// Adds a mesh and a chunk.
     fn add_chunk_and_mesh(
         &mut self,
         chunk_pos: IVec2,
@@ -208,10 +253,6 @@ impl ChunkManager {
         meshes: &mut Assets<Mesh>
     ) -> MultiMeshMap {
         self.chunks.insert(chunk_pos, chunk);
-
-        let chunk_mesh_map: MultiMeshMap = self.update_mesh(chunk_pos, meshes);
-        self.meshes.insert(chunk_pos, chunk_mesh_map.clone());
-
-        chunk_mesh_map
+        self.update_mesh(chunk_pos, meshes).expect("just created chunk, should exist")
     }
 }
