@@ -11,7 +11,7 @@ struct PlayerCamera;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
         .init_resource::<ChunkManager>()
         .init_resource::<Textures>()
