@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::lib_root::block::Block;
+
 pub enum Texture {
     Empty,
     Color(Color),
@@ -10,6 +11,7 @@ pub enum Texture {
 }
 
 impl Texture {
+    /// Converts this texture description into a material, if the block should be rendered.
     fn material(self, asset_server: &AssetServer) -> Option<StandardMaterial> {
         match self {
             Texture::Empty => None,
@@ -27,6 +29,9 @@ impl Texture {
 pub struct Textures(HashMap<Block, Option<Handle<StandardMaterial>>>);
 
 impl Textures {
+    /// Returns the cached material handle for a block, creating it on first use.
+    ///
+    /// The returned handle is `None` for blocks whose texture is [`Texture::Empty`].
     pub fn get(
         &mut self,
         block: Block,

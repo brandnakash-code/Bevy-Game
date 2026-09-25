@@ -5,9 +5,7 @@ use std::{ cmp::{ max, min }, collections::HashMap };
 #[allow(unused)]
 use thiserror::Error;
 
-use crate::lib_root::block::Block;
-use crate::lib_root::textures::Texture;
-use crate::lib_root::consts::{ CHUNK_SIZE, CHUNK_HEIGHT };
+use crate::lib_root::{ block::Block, textures::Texture, consts::{ CHUNK_SIZE, CHUNK_HEIGHT } };
 
 type Vertex = [f32; 3];
 type RawMeshMap = HashMap<Block, Mesh>;
@@ -27,6 +25,7 @@ struct OutOfChunkError {
 struct TriangleData {
     positions: Vec<Vertex>,
     normals: Vec<Vertex>,
+    uvs: Vec<[f32; 2]>,
     indices: Vec<u32>,
 }
 
@@ -35,6 +34,7 @@ impl TriangleData {
         Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
             .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals)
+            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs)
             .with_inserted_indices(Indices::U32(self.indices))
     }
 }
@@ -45,10 +45,12 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    /// Creates an empty chunk filled with [`Block::Air`].
     pub fn new() -> Self {
         Chunk { blocks: [[[Block::Air; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE] }
     }
 
+    /// Builds one mesh per visible block type in the chunk.
     pub fn mesh(&self) -> RawMeshMap {
         let mut triangle_map: HashMap<Block, TriangleData> = HashMap::new();
 
@@ -64,6 +66,7 @@ impl Chunk {
                     let data = triangle_map.entry(block).or_insert_with(|| TriangleData {
                         positions: Vec::new(),
                         normals: Vec::new(),
+                        uvs: Vec::new(),
                         indices: Vec::new(),
                     });
 
@@ -101,12 +104,22 @@ impl Chunk {
             .collect()
     }
 
+    /// Sets the block at the given local chunk coordinates.
+    ///
+    /// # Panics
+    ///
+    /// Panics when any coordinate is outside the chunk.
     pub fn set(&mut self, x: usize, y: usize, z: usize, block: Block) {
         assert!(Chunk::is_in(x as isize, y as isize, z as isize));
 
         self.blocks[x][y][z] = block;
     }
 
+    /// Fills the inclusive cuboid between two local chunk coordinates.
+    ///
+    /// # Panics
+    ///
+    /// Panics when either corner is outside the chunk.
     pub fn fill(&mut self, x1: usize, y1: usize, z1: usize, x2: usize, y2: usize, z2: usize) {
         assert!(Chunk::is_in(x1 as isize, y1 as isize, z1 as isize));
         assert!(Chunk::is_in(x2 as isize, y2 as isize, z2 as isize));
@@ -120,6 +133,7 @@ impl Chunk {
         }
     }
 
+    /// Returns whether local coordinates are inside the chunk bounds.
     fn is_in(x: isize, y: isize, z: isize) -> bool {
         x >= 0 &&
             y >= 0 &&
@@ -129,11 +143,13 @@ impl Chunk {
             z < (CHUNK_SIZE as isize)
     }
 
+    /// Returns the block at valid local coordinates.
     fn get(&self, x: usize, y: usize, z: usize) -> Block {
         assert!(Chunk::is_in(x as isize, y as isize, z as isize));
         self.blocks[x][y][z]
     }
 
+    /// Checks whether a block matches at local coordinates without panicking on out-of-bounds input.
     #[allow(unused)]
     fn try_is(&self, block: Block, x: isize, y: isize, z: isize) -> Result<bool, OutOfChunkError> {
         if !Chunk::is_in(x, y, z) {
@@ -148,6 +164,7 @@ impl Chunk {
         Ok(self.get(x, y, z) == block)
     }
 
+    /// Returns whether the block at local coordinates blocks visibility.
     fn culls(&self, x: isize, y: isize, z: isize) -> bool {
         if !Chunk::is_in(x, y, z) {
             return false;
@@ -290,6 +307,12 @@ fn add_face(data: &mut TriangleData, x: usize, y: usize, z: usize, direction: Di
 
     data.positions.extend(vertices);
     data.normals.extend([normal; 4]);
+    data.uvs.extend([
+        [0.0, 0.0],
+        [0.0, 1.0],
+        [1.0, 1.0],
+        [1.0, 0.0],
+    ]);
 
     // Two triangles
     data.indices.extend([start, start + 1, start + 2, start, start + 2, start + 3]);

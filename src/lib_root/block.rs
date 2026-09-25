@@ -9,6 +9,7 @@ pub enum Block {
 }
 
 impl Block {
+    /// Returns whether this block occupies space and hides adjacent faces.
     pub const fn culls(self) -> bool {
         match self {
             Block::Air => false,
@@ -16,6 +17,7 @@ impl Block {
         }
     }
 
+    /// Returns the texture description used to render this block.
     pub const fn texture(self) -> Texture {
         match self {
             Block::Air => Texture::Empty,

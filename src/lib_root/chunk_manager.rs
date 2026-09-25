@@ -24,11 +24,12 @@ pub struct ChunkManager {
 }
 
 impl ChunkManager {
+    /// Creates an empty chunk manager with no generated, pending, or rendered chunks.
     pub fn new() -> Self {
         ChunkManager::default()
     }
 
-    /// Removes a chunk from Entities, but keeps it's mesh and block data.
+    /// Removes a chunk entity while retaining its generated block data and mesh.
     pub fn unload_chunk(&mut self, commands: &mut Commands, chunk_position: IVec2) {
         if let Some(entity) = self.entities.remove(&chunk_position) {
             commands.entity(entity).despawn();
@@ -95,12 +96,14 @@ impl ChunkManager {
             .id()
     }
 
-    /// returns the center.
+    /// Returns the chunk currently used as the loading center, if one is set.
     pub fn center(&self) -> Option<IVec2> {
         self.center
     }
 
-    /// Loads chunks in a square around the center, schedules non existing chunks to be generated.
+    /// Loads cached chunks around `center` and schedules missing chunks for generation.
+    ///
+    /// Chunks outside the configured render radius are unloaded from the scene.
     pub fn set_center(
         &mut self,
         center: IVec2,
@@ -151,7 +154,7 @@ impl ChunkManager {
         self.center = Some(center);
     }
 
-    /// Generates scheduled chunks.
+    /// Polls pending generation tasks and renders completed chunks still within range.
     pub fn poll_generation_tasks(
         &mut self,
         commands: &mut Commands,
@@ -195,24 +198,24 @@ impl ChunkManager {
         }
     }
 
-    /// Returns positions of loaded & rendered chunks.
+    /// Returns the positions of chunks that currently have rendered entities.
     pub fn get_loaded_chunk_positions(&self) -> HashSet<IVec2> {
         self.entities.keys().cloned().collect()
     }
 
-    /// Schedules a chunk to be generated.
+    /// Starts asynchronous generation for a chunk that is not already pending.
     fn schedule_chunk_gen(&mut self, chunk_pos: IVec2) {
         let task_pool = AsyncComputeTaskPool::get();
         let task = task_pool.spawn(async move { generate(chunk_pos) });
         self.pending.insert(chunk_pos, task);
     }
 
-    /// Adds a chunk, returns the overwritten Chunk if there was one.
+    /// Stores a generated chunk and returns any chunk previously stored at that position.
     fn add_chunk(&mut self, chunk_pos: IVec2, chunk: Chunk) -> Option<Chunk> {
         self.chunks.insert(chunk_pos, chunk)
     }
 
-    /// Updates a mesh for a chunk, returns None if the chunk doesn't exist.
+    /// Builds and caches meshes for a generated chunk, or returns `None` if it is absent.
     fn update_mesh(&mut self, chunk_pos: IVec2, meshes: &mut Assets<Mesh>) -> Option<MultiMeshMap> {
         let Some(chunk) = self.chunks.get(&chunk_pos) else {
             self.meshes.remove(&chunk_pos);

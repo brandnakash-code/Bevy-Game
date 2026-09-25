@@ -4,20 +4,22 @@ use std::collections::HashSet;
 
 use noise::{ NoiseFn, Perlin };
 
-use crate::lib_root::chunk::Chunk;
-use crate::lib_root::consts::{
-    BASE_HEIGHT,
-    CHUNK_HEIGHT,
-    CHUNK_SIZE,
-    HIGH_AMPLITUDE,
-    HIGH_FREQUENCY,
-    LOW_AMPLITUDE,
-    LOW_FREQUENCY,
-    MED_AMPLITUDE,
-    MED_FREQUENCY,
-    NOISE_INTERPOLATION,
-    SEED,
-    WORLD_SCALE,
+use crate::lib_root::{
+    consts::{
+        BASE_HEIGHT,
+        CHUNK_HEIGHT,
+        CHUNK_SIZE,
+        HIGH_AMPLITUDE,
+        HIGH_FREQUENCY,
+        LOW_AMPLITUDE,
+        LOW_FREQUENCY,
+        MED_AMPLITUDE,
+        MED_FREQUENCY,
+        NOISE_INTERPOLATION,
+        SEED,
+        WORLD_SCALE,
+    },
+    chunk::Chunk,
 };
 
 type InterpolatedNoiseMap = [[f64; SPACES]; SPACES];
@@ -25,14 +27,17 @@ type NoiseMap = [[f64; CHUNK_SIZE]; CHUNK_SIZE];
 
 const SPACES: usize = CHUNK_SIZE.div_ceil(NOISE_INTERPOLATION);
 
+/// Converts a local chunk X coordinate and chunk coordinates into a world X coordinate.
 pub fn local_to_world_x(a: usize, chunk_coords: IVec2) -> i32 {
     chunk_coords.x * (CHUNK_SIZE as i32) + (a as i32)
 }
 
+/// Converts a local chunk Z coordinate and chunk coordinates into a world Z coordinate.
 pub fn local_to_world_z(a: usize, chunk_coords: IVec2) -> i32 {
     chunk_coords.y * (CHUNK_SIZE as i32) + (a as i32)
 }
 
+/// Generates terrain blocks for the chunk at the given chunk coordinates.
 pub fn generate(chunk_pos: IVec2) -> Chunk {
     let perlin = Perlin::new(SEED);
 
@@ -63,6 +68,9 @@ pub fn generate(chunk_pos: IVec2) -> Chunk {
     chunk
 }
 
+/// Returns all chunk coordinates in a square centered on `chunk_pos`.
+///
+/// The square extends `radius` chunks in each horizontal direction, inclusive.
 pub fn get_chunk_positions(chunk_pos: IVec2, radius: i32) -> HashSet<IVec2> {
     let mut chunks = HashSet::with_capacity((radius * radius * 4) as usize);
 
@@ -75,6 +83,7 @@ pub fn get_chunk_positions(chunk_pos: IVec2, radius: i32) -> HashSet<IVec2> {
     chunks
 }
 
+/// Converts a world-space X / Z position into its containing chunk coordinates.
 pub fn world_to_chunk_coords(player_position: Vec3) -> IVec2 {
     IVec2::new(
         (player_position.x.floor() as i32).div_euclid(CHUNK_SIZE as i32),
@@ -82,6 +91,7 @@ pub fn world_to_chunk_coords(player_position: Vec3) -> IVec2 {
     )
 }
 
+/// Samples Perlin noise on a sparse grid and bilinearly interpolates it per block.
 fn get_noises(perlin: &Perlin, chunk_pos: IVec2, freq: f64) -> NoiseMap {
     let mut samples: InterpolatedNoiseMap = [[0.0; SPACES]; SPACES];
 
@@ -139,6 +149,7 @@ fn get_noises(perlin: &Perlin, chunk_pos: IVec2, freq: f64) -> NoiseMap {
     noises
 }
 
+/// Interpolates a value at `target` from the four values surrounding it.
 fn bilinearly_interpolate(
     point_min: IVec2,
     point_max: IVec2,

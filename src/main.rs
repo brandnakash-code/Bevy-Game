@@ -1,8 +1,10 @@
 use bevy::{ input::mouse::MouseMotion, prelude::*, window::{ CursorGrabMode, CursorOptions } };
 
-use bevy_game::lib_root::chunk_gen::world_to_chunk_coords;
-use bevy_game::lib_root::chunk_manager::ChunkManager;
-use bevy_game::lib_root::textures::Textures;
+use bevy_game::lib_root::{
+    chunk_gen::world_to_chunk_coords,
+    chunk_manager::ChunkManager,
+    textures::Textures,
+};
 
 #[derive(Component)]
 struct PlayerCamera;
