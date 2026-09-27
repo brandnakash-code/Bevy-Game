@@ -5,10 +5,15 @@ use std::{ cmp::{ max, min }, collections::HashMap };
 #[allow(unused)]
 use thiserror::Error;
 
-use crate::lib_root::{ block::Block, textures::Texture, consts::{ CHUNK_SIZE, CHUNK_HEIGHT } };
+use crate::lib_root::{
+    block::Block,
+    textures::{ Texture, BlockMap, DirMap },
+    consts::{ CHUNK_SIZE, CHUNK_HEIGHT },
+};
+use crate::Direction;
 
 type Vertex = [f32; 3];
-type RawMeshMap = HashMap<Block, Mesh>;
+type RawMeshMap = BlockMap<DirMap<Mesh>>;
 
 fn order(a: usize, b: usize) -> std::ops::RangeInclusive<usize> {
     min(a, b)..=max(a, b)
@@ -52,14 +57,14 @@ impl Chunk {
 
     /// Builds one mesh per visible block type in the chunk.
     pub fn mesh(&self) -> RawMeshMap {
-        let mut triangle_map: HashMap<Block, TriangleData> = HashMap::new();
+        let mut triangle_map: BlockMap<DirMap<TriangleData>> = HashMap::new();
 
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_HEIGHT {
                 for z in 0..CHUNK_SIZE {
                     let block = self.blocks[x][y][z];
 
-                    if !block.culls() || matches!(block.texture(), Texture::Empty) {
+                    if !block.culls() || matches!(block.texture(Direction::NegY), Texture::Empty) {
                         continue;
                     }
 
@@ -127,7 +132,7 @@ impl Chunk {
         for x in order(x1, x2) {
             for y in order(y1, y2) {
                 for z in order(z1, z2) {
-                    self.blocks[x][y][z] = Block::Block;
+                    self.blocks[x][y][z] = Block::Grass;
                 }
             }
         }
@@ -180,16 +185,6 @@ impl Default for Chunk {
     fn default() -> Self {
         Chunk::new()
     }
-}
-
-#[derive(Clone, Copy)]
-enum Direction {
-    PosX,
-    NegX,
-    PosY,
-    NegY,
-    PosZ,
-    NegZ,
 }
 
 fn add_face(data: &mut TriangleData, x: usize, y: usize, z: usize, direction: Direction) {

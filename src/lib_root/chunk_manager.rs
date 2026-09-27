@@ -3,16 +3,24 @@ use bevy::{ prelude::*, tasks::{ AsyncComputeTaskPool, Task } };
 use std::collections::{ HashMap, HashSet };
 
 use futures_lite::future;
+use thiserror::Error;
 
 use crate::lib_root::{
     chunk::Chunk,
     chunk_gen::{ generate, get_chunk_positions },
     consts::{ CHUNK_SIZE, RENDER_DISTANCE },
     block::Block,
-    textures::Textures,
+    textures::{ Textures, BlockDirMap },
 };
 
-type MultiMeshMap = HashMap<Block, Handle<Mesh>>;
+type MultiMeshMap = BlockDirMap<Handle<Mesh>>;
+
+pub type Result<T> = std::result::Result<T, Error>;
+#[derive(Error, Debug, PartialEq)]
+#[error("There is no chunk at (pos)")]
+pub struct Error {
+    pos: IVec2,
+}
 
 #[derive(Resource, Default)]
 pub struct ChunkManager {
@@ -36,10 +44,7 @@ impl ChunkManager {
         }
     }
 
-    /// Loads an already generated chunk, meshes it if needed, and returns an entity.
-    ///
-    /// # Panics
-    /// Panics if chunk does not exist.
+    /// Loads an already generated chunk, meshes it if needed, and returns an entity if the chunk exists.
     fn load_chunk(
         &mut self,
         chunk_pos: IVec2,
@@ -48,20 +53,22 @@ impl ChunkManager {
         materials: &mut Assets<StandardMaterial>,
         textures: &mut Textures,
         asset_server: &AssetServer
-    ) -> Entity {
+    ) -> Result<Entity> {
         let mesh_map: MultiMeshMap = if let Some(mesh_map) = self.meshes.get(&chunk_pos) {
             mesh_map.clone()
         } else {
-            self.update_mesh(chunk_pos, meshes).expect("chunk should exist")
+            self.update_mesh(chunk_pos, meshes).ok_or(Error { pos: chunk_pos })?
         };
 
-        self.load_chunk_from_meshmap(
-            chunk_pos,
-            mesh_map,
-            commands,
-            materials,
-            textures,
-            asset_server
+        Ok(
+            self.load_chunk_from_meshmap(
+                chunk_pos,
+                mesh_map,
+                commands,
+                materials,
+                textures,
+                asset_server
+            )
         )
     }
 
@@ -85,7 +92,7 @@ impl ChunkManager {
                 Visibility::default(),
             ))
             .with_children(|parent| {
-                for (block, mesh) in mesh_map {
+                for (block, dirmap) in mesh_map {
                     let Some(material) = textures.get(block, asset_server, materials) else {
                         continue;
                     };
@@ -143,7 +150,7 @@ impl ChunkManager {
                     textures,
                     asset_server
                 );
-                self.entities.insert(new_chunk_pos, entity);
+                self.entities.insert(new_chunk_pos, entity.expect("Chunk should exist"));
                 continue;
             }
 
@@ -194,7 +201,7 @@ impl ChunkManager {
                 textures,
                 asset_server
             );
-            self.entities.insert(chunk_pos, entity);
+            self.entities.insert(chunk_pos, entity.expect("Chunk just created, should exist"));
         }
     }
 

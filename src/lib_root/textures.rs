@@ -3,11 +3,18 @@ use bevy::prelude::*;
 use std::collections::HashMap;
 
 use crate::lib_root::block::Block;
+use crate::Direction;
+
+pub type BlockDirMap<T> = BlockMap<DirMap<T>>;
+pub type BlockMap<T> = HashMap<Block, T>;
+pub type DirMap<T> = HashMap<Direction, T>;
+pub type Material = Option<Handle<StandardMaterial>>;
 
 pub enum Texture {
     Empty,
     Color(Color),
     Path(&'static str),
+    Tinted(&'static str, Color),
 }
 
 impl Texture {
@@ -21,12 +28,18 @@ impl Texture {
                     base_color_texture: Some(asset_server.load(path)),
                     ..default()
                 }),
+            Texture::Tinted(path, color) =>
+                Some(StandardMaterial {
+                    base_color: color,
+                    base_color_texture: Some(asset_server.load(path)),
+                    ..default()
+                }),
         }
     }
 }
 
 #[derive(Resource, Default)]
-pub struct Textures(HashMap<Block, Option<Handle<StandardMaterial>>>);
+pub struct Textures(BlockMap<DirMap<Material>>);
 
 impl Textures {
     /// Returns the cached material handle for a block, creating it on first use.
@@ -35,20 +48,20 @@ impl Textures {
     pub fn get(
         &mut self,
         block: Block,
+        dir: Direction,
         asset_server: &AssetServer,
         materials: &mut Assets<StandardMaterial>
-    ) -> Option<Handle<StandardMaterial>> {
-        if let Some(texture) = self.0.get(&block) {
-            texture.clone()
-        } else {
-            self.0.insert(
-                block,
+    ) -> Material {
+        self.0
+            .entry(block)
+            .or_insert(HashMap::new())
+            .entry(dir)
+            .or_insert_with(||
                 block
-                    .texture()
+                    .texture(dir)
                     .material(asset_server)
-                    .map(|texture| materials.add(texture))
-            );
-            self.0.get(&block).expect("just created, should exist").clone()
-        }
+                    .map(|inner| materials.add(inner))
+            )
+            .clone()
     }
 }
