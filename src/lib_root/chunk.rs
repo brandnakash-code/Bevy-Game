@@ -39,6 +39,7 @@ impl TriangleData {
     fn new() -> Self {
         Self::default()
     }
+
     fn mesh(self) -> Mesh {
         Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
@@ -48,15 +49,33 @@ impl TriangleData {
     }
 }
 
-#[derive(Resource, Default)]
-pub struct Chunk {
-    blocks: [[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE],
+#[derive(Resource)]
+pub struct Chunk([[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE]);
+
+impl core::ops::Index<usize> for Chunk {
+    type Output = [[Block; CHUNK_SIZE]; CHUNK_HEIGHT];
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl core::ops::IndexMut<usize> for Chunk {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
+    }
+}
+
+impl Default for Chunk {
+    fn default() -> Self {
+        Chunk([[[Block::default(); CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE])
+    }
 }
 
 impl Chunk {
     /// Creates an empty chunk filled with [`Block::Air`].
     pub fn new() -> Self {
-        Chunk { blocks: [[[Block::Air; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE] }
+        Chunk::default()
     }
 
     /// Builds one mesh per visible block type in the chunk.
@@ -66,7 +85,10 @@ impl Chunk {
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_HEIGHT {
                 for z in 0..CHUNK_SIZE {
-                    let block = self.blocks[x][y][z];
+                    let block = self[x][y][z];
+                    if !block.culls() {
+                        continue;
+                    }
 
                     let is_empty_in_any_direction =
                         matches!(block.texture(Direction::NegY), Texture::Empty) ||
@@ -75,38 +97,36 @@ impl Chunk {
                         matches!(block.texture(Direction::PosX), Texture::Empty) ||
                         matches!(block.texture(Direction::NegZ), Texture::Empty) ||
                         matches!(block.texture(Direction::PosZ), Texture::Empty);
-
-                    if !block.culls() || is_empty_in_any_direction {
+                    if is_empty_in_any_direction {
                         continue;
                     }
 
-                    let data: &mut DirMap<TriangleData> = triangle_map
+                    let dirmap: &mut DirMap<TriangleData> = triangle_map
                         .entry(block)
                         .or_insert_with(|| HashMap::new());
 
-                    // Check every direction.
                     if !self.culls((x as isize) + 1, y as isize, z as isize) {
-                        add_face(data, x, y, z, Direction::PosX);
+                        add_face(dirmap, x, y, z, Direction::PosX);
                     }
 
                     if !self.culls((x as isize) - 1, y as isize, z as isize) {
-                        add_face(data, x, y, z, Direction::NegX);
+                        add_face(dirmap, x, y, z, Direction::NegX);
                     }
 
                     if !self.culls(x as isize, (y as isize) + 1, z as isize) {
-                        add_face(data, x, y, z, Direction::PosY);
+                        add_face(dirmap, x, y, z, Direction::PosY);
                     }
 
                     if !self.culls(x as isize, (y as isize) - 1, z as isize) {
-                        add_face(data, x, y, z, Direction::NegY);
+                        add_face(dirmap, x, y, z, Direction::NegY);
                     }
 
                     if !self.culls(x as isize, y as isize, (z as isize) + 1) {
-                        add_face(data, x, y, z, Direction::PosZ);
+                        add_face(dirmap, x, y, z, Direction::PosZ);
                     }
 
                     if !self.culls(x as isize, y as isize, (z as isize) - 1) {
-                        add_face(data, x, y, z, Direction::NegZ);
+                        add_face(dirmap, x, y, z, Direction::NegZ);
                     }
                 }
             }
@@ -114,7 +134,13 @@ impl Chunk {
 
         triangle_map
             .into_iter()
-            .map(|(block, data)| (block, data.mesh()))
+            .map(|(block, dirmap)| (
+                block,
+                dirmap
+                    .into_iter()
+                    .map(|(dir, premesh)| (dir, premesh.mesh()))
+                    .collect(),
+            ))
             .collect()
     }
 
@@ -126,7 +152,7 @@ impl Chunk {
     pub fn set(&mut self, x: usize, y: usize, z: usize, block: Block) {
         assert!(Chunk::is_in(x as isize, y as isize, z as isize));
 
-        self.blocks[x][y][z] = block;
+        self[x][y][z] = block;
     }
 
     /// Fills the inclusive cuboid between two local chunk coordinates.
@@ -141,7 +167,7 @@ impl Chunk {
         for x in order(x1, x2) {
             for y in order(y1, y2) {
                 for z in order(z1, z2) {
-                    self.blocks[x][y][z] = Block::Grass;
+                    self[x][y][z] = Block::Grass;
                 }
             }
         }
@@ -160,7 +186,7 @@ impl Chunk {
     /// Returns the block at valid local coordinates.
     fn get(&self, x: usize, y: usize, z: usize) -> Block {
         assert!(Chunk::is_in(x as isize, y as isize, z as isize));
-        self.blocks[x][y][z]
+        self[x][y][z]
     }
 
     /// Checks whether a block matches at local coordinates without panicking on out-of-bounds input.
@@ -186,7 +212,7 @@ impl Chunk {
 
         let (x, y, z) = (x as usize, y as usize, z as usize);
 
-        self.blocks[x][y][z].culls()
+        self[x][y][z].culls()
     }
 }
 

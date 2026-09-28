@@ -9,6 +9,12 @@ pub enum Block {
     Grass,
 }
 
+impl Default for Block {
+    fn default() -> Self {
+        Self::Air
+    }
+}
+
 impl Block {
     pub const fn culls(self) -> bool {
         match self {
