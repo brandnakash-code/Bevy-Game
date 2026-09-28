@@ -231,7 +231,9 @@ impl ChunkManager {
 
         let mut chunk_mesh_map: MultiMeshMap = HashMap::new();
         for (block, mesh) in chunk.mesh() {
-            chunk_mesh_map.insert(block, meshes.add(mesh));
+            for (dir, mesh) in mesh {
+                chunk_mesh_map.insert(block, meshes.add(mesh));
+            }
         }
 
         self.meshes.insert(chunk_pos, chunk_mesh_map.clone());

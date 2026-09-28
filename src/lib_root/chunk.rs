@@ -7,13 +7,13 @@ use thiserror::Error;
 
 use crate::lib_root::{
     block::Block,
-    textures::{ Texture, BlockMap, DirMap },
+    textures::{ Texture, BlockDirMap, DirMap },
     consts::{ CHUNK_SIZE, CHUNK_HEIGHT },
 };
 use crate::Direction;
 
 type Vertex = [f32; 3];
-type RawMeshMap = BlockMap<DirMap<Mesh>>;
+type RawMeshMap = BlockDirMap<Mesh>;
 
 fn order(a: usize, b: usize) -> std::ops::RangeInclusive<usize> {
     min(a, b)..=max(a, b)
@@ -27,6 +27,7 @@ struct OutOfChunkError {
     range: (usize, usize, usize),
 }
 
+#[derive(Default)]
 struct TriangleData {
     positions: Vec<Vertex>,
     normals: Vec<Vertex>,
@@ -35,6 +36,9 @@ struct TriangleData {
 }
 
 impl TriangleData {
+    fn new() -> Self {
+        Self::default()
+    }
     fn mesh(self) -> Mesh {
         Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
@@ -44,7 +48,7 @@ impl TriangleData {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct Chunk {
     blocks: [[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE],
 }
@@ -57,23 +61,28 @@ impl Chunk {
 
     /// Builds one mesh per visible block type in the chunk.
     pub fn mesh(&self) -> RawMeshMap {
-        let mut triangle_map: BlockMap<DirMap<TriangleData>> = HashMap::new();
+        let mut triangle_map: BlockDirMap<TriangleData> = HashMap::new();
 
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_HEIGHT {
                 for z in 0..CHUNK_SIZE {
                     let block = self.blocks[x][y][z];
 
-                    if !block.culls() || matches!(block.texture(Direction::NegY), Texture::Empty) {
+                    let is_empty_in_any_direction =
+                        matches!(block.texture(Direction::NegY), Texture::Empty) ||
+                        matches!(block.texture(Direction::PosY), Texture::Empty) ||
+                        matches!(block.texture(Direction::NegX), Texture::Empty) ||
+                        matches!(block.texture(Direction::PosX), Texture::Empty) ||
+                        matches!(block.texture(Direction::NegZ), Texture::Empty) ||
+                        matches!(block.texture(Direction::PosZ), Texture::Empty);
+
+                    if !block.culls() || is_empty_in_any_direction {
                         continue;
                     }
 
-                    let data = triangle_map.entry(block).or_insert_with(|| TriangleData {
-                        positions: Vec::new(),
-                        normals: Vec::new(),
-                        uvs: Vec::new(),
-                        indices: Vec::new(),
-                    });
+                    let data: &mut DirMap<TriangleData> = triangle_map
+                        .entry(block)
+                        .or_insert_with(|| HashMap::new());
 
                     // Check every direction.
                     if !self.culls((x as isize) + 1, y as isize, z as isize) {
@@ -181,17 +190,12 @@ impl Chunk {
     }
 }
 
-impl Default for Chunk {
-    fn default() -> Self {
-        Chunk::new()
-    }
-}
-
-fn add_face(data: &mut TriangleData, x: usize, y: usize, z: usize, direction: Direction) {
-    let start = data.positions.len() as u32;
+fn add_face(data: &mut DirMap<TriangleData>, x: usize, y: usize, z: usize, dir: Direction) {
+    let dir_map = data.entry(dir).or_insert_with(|| TriangleData::new());
+    let start = dir_map.positions.len() as u32;
     let (x, y, z) = (x as f32, y as f32, z as f32);
 
-    let (vertices, normal) = match direction {
+    let (vertices, normal) = match dir {
         //
         //   Y       Z
         //   ^      /
@@ -300,9 +304,9 @@ fn add_face(data: &mut TriangleData, x: usize, y: usize, z: usize, direction: Di
             ),
     };
 
-    data.positions.extend(vertices);
-    data.normals.extend([normal; 4]);
-    data.uvs.extend([
+    dir_map.positions.extend(vertices);
+    dir_map.normals.extend([normal; 4]);
+    dir_map.uvs.extend([
         [0.0, 0.0],
         [0.0, 1.0],
         [1.0, 1.0],
@@ -310,5 +314,5 @@ fn add_face(data: &mut TriangleData, x: usize, y: usize, z: usize, direction: Di
     ]);
 
     // Two triangles
-    data.indices.extend([start, start + 1, start + 2, start, start + 2, start + 3]);
+    dir_map.indices.extend([start, start + 1, start + 2, start, start + 2, start + 3]);
 }
