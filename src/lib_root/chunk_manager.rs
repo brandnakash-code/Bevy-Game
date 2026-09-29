@@ -93,11 +93,7 @@ impl ChunkManager {
             ))
             .with_children(|parent| {
                 for (block, dirmap) in mesh_map {
-                    let Some(material) = textures.get(block, asset_server, materials) else {
-                        continue;
-                    };
-
-                    parent.spawn((Mesh3d(mesh), MeshMaterial3d(material)));
+                    todo!();
                 }
             })
             .id()
@@ -228,6 +224,8 @@ impl ChunkManager {
             self.meshes.remove(&chunk_pos);
             return None;
         };
+
+        todo!();
 
         let mut chunk_mesh_map: MultiMeshMap = HashMap::new();
         for (block, mesh) in chunk.mesh() {

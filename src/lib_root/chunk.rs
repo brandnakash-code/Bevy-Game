@@ -1,8 +1,9 @@
 use bevy::{ asset::RenderAssetUsages, mesh::{ Indices, PrimitiveTopology }, prelude::* };
 
-use std::{ cmp::{ max, min }, collections::HashMap };
+use std::cmp::{ max, min };
+use std::collections::HashMap;
+use std::ops::{ Deref, DerefMut };
 
-#[allow(unused)]
 use thiserror::Error;
 
 use crate::lib_root::{
@@ -49,20 +50,56 @@ impl TriangleData {
     }
 }
 
-#[derive(Resource)]
-pub struct Chunk([[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE]);
+#[derive(Default)]
+struct TriangleMap(BlockDirMap<TriangleData>);
 
-impl core::ops::Index<usize> for Chunk {
-    type Output = [[Block; CHUNK_SIZE]; CHUNK_HEIGHT];
+impl TriangleMap {
+    fn new() -> Self {
+        Self::default()
+    }
 
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.0[index]
+    fn into_raw_meshmap(self) -> RawMeshMap {
+        self.0
+            .into_iter()
+            .map(|(block, dirmap)| (
+                block,
+                dirmap
+                    .into_iter()
+                    .map(|(dir, premesh)| (dir, premesh.mesh()))
+                    .collect(),
+            ))
+            .collect()
     }
 }
 
-impl core::ops::IndexMut<usize> for Chunk {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.0[index]
+impl Deref for TriangleMap {
+    type Target = BlockDirMap<TriangleData>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for TriangleMap {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Resource)]
+pub struct Chunk([[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE]);
+
+impl Deref for Chunk {
+    type Target = [[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Chunk {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -80,12 +117,13 @@ impl Chunk {
 
     /// Builds one mesh per visible block type in the chunk.
     pub fn mesh(&self) -> RawMeshMap {
-        let mut triangle_map: BlockDirMap<TriangleData> = HashMap::new();
+        let mut triangle_map = TriangleMap::new();
 
         for x in 0..CHUNK_SIZE {
             for y in 0..CHUNK_HEIGHT {
                 for z in 0..CHUNK_SIZE {
                     let block = self[x][y][z];
+
                     if !block.culls() {
                         continue;
                     }
@@ -132,16 +170,7 @@ impl Chunk {
             }
         }
 
-        triangle_map
-            .into_iter()
-            .map(|(block, dirmap)| (
-                block,
-                dirmap
-                    .into_iter()
-                    .map(|(dir, premesh)| (dir, premesh.mesh()))
-                    .collect(),
-            ))
-            .collect()
+        triangle_map.into_raw_meshmap()
     }
 
     /// Sets the block at the given local chunk coordinates.
@@ -187,21 +216,6 @@ impl Chunk {
     fn get(&self, x: usize, y: usize, z: usize) -> Block {
         assert!(Chunk::is_in(x as isize, y as isize, z as isize));
         self[x][y][z]
-    }
-
-    /// Checks whether a block matches at local coordinates without panicking on out-of-bounds input.
-    #[allow(unused)]
-    fn try_is(&self, block: Block, x: isize, y: isize, z: isize) -> Result<bool, OutOfChunkError> {
-        if !Chunk::is_in(x, y, z) {
-            return Err(OutOfChunkError {
-                attempted: (x, y, z),
-                range: (CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE),
-            });
-        }
-
-        let (x, y, z) = (x as usize, y as usize, z as usize);
-
-        Ok(self.get(x, y, z) == block)
     }
 
     /// Returns whether the block at local coordinates blocks visibility.
@@ -276,6 +290,7 @@ fn add_face(data: &mut DirMap<TriangleData>, x: usize, y: usize, z: usize, dir: 
                 ],
                 [-1.0, 0.0, 0.0],
             ),
+
         //      D------E
         //     /      /
         //    C------G
@@ -289,6 +304,7 @@ fn add_face(data: &mut DirMap<TriangleData>, x: usize, y: usize, z: usize, dir: 
                 ],
                 [0.0, 1.0, 0.0],
             ),
+
         //      A------H
         //     /      /
         //    B------F
@@ -302,6 +318,7 @@ fn add_face(data: &mut DirMap<TriangleData>, x: usize, y: usize, z: usize, dir: 
                 ],
                 [0.0, -1.0, 0.0],
             ),
+
         //      D------E
         //      |      |
         //      B------F
@@ -315,6 +332,7 @@ fn add_face(data: &mut DirMap<TriangleData>, x: usize, y: usize, z: usize, dir: 
                 ],
                 [0.0, 0.0, 1.0],
             ),
+
         //      C------G
         //      |      |
         //      A------H
