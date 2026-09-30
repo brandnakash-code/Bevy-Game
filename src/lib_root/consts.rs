@@ -6,7 +6,7 @@ pub const CHUNK_HEIGHT: usize = u8::MAX as usize;
 
 /// The chunk radius around the player's current chunk that is loaded and rendered.
 /// This produces a square region with `(2 * RENDER_DISTANCE + 1)^2` chunks.
-pub const RENDER_DISTANCE: i32 = 16;
+pub const RENDER_DISTANCE: i32 = 8;
 
 /// The seed passed to the Perlin noise generator, determining the generated terrain pattern.
 pub const SEED: u32 = 123456789;

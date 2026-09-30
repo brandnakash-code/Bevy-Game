@@ -25,7 +25,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    let player_position = Vec3::new(10.0, 8.0, 10.0);
+    let player_position = Vec3::new(10.0, 155.5, 10.0);
 
     // Camera
     commands.spawn((
