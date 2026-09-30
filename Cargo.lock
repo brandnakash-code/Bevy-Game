@@ -805,6 +805,7 @@ name = "bevy_game"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "derive_more",
  "futures-lite",
  "noise",
  "thiserror 2.0.21",

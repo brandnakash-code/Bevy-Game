@@ -1,14 +1,10 @@
 use bevy::prelude::*;
 
-use std::collections::HashMap;
-
 use crate::lib_root::block::Block;
-use crate::Direction;
 
-pub type BlockDirMap<T> = BlockMap<DirMap<T>>;
-pub type BlockMap<T> = HashMap<Block, T>;
-pub type DirMap<T> = HashMap<Direction, T>;
-pub type Material = Option<Handle<StandardMaterial>>;
+use crate::Direction;
+use crate::BlockDirMap;
+use crate::MaterialHandle;
 
 pub enum Texture {
     Empty,
@@ -39,7 +35,7 @@ impl Texture {
 }
 
 #[derive(Resource, Default)]
-pub struct Textures(BlockMap<DirMap<Material>>);
+pub struct Textures(BlockDirMap<Option<MaterialHandle>>);
 
 impl Textures {
     /// Returns the cached material handle for a block, creating it on first use.
@@ -51,7 +47,7 @@ impl Textures {
         dir: Direction,
         asset_server: &AssetServer,
         materials: &mut Assets<StandardMaterial>
-    ) -> Material {
+    ) -> Option<MaterialHandle> {
         self.0
             .entry(block)
             .or_default()
@@ -60,7 +56,7 @@ impl Textures {
                 block
                     .texture(dir)
                     .material(asset_server)
-                    .map(|inner| materials.add(inner))
+                    .map(|inner| MaterialHandle(materials.add(inner)))
             )
             .clone()
     }

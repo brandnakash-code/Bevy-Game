@@ -105,6 +105,7 @@ fn get_noises(perlin: &Perlin, chunk_pos: IVec2, freq: f64) -> NoiseMap {
                 (world_x as f64) / WORLD_SCALE / freq,
                 (world_z as f64) / WORLD_SCALE / freq,
             ]);
+            
             samples[x][z] = noise_value;
         }
     }

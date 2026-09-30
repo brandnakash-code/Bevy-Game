@@ -5,12 +5,11 @@ use std::ops::{ Deref, DerefMut };
 
 use thiserror::Error;
 
-use crate::lib_root::{
-    block::Block,
-    textures::{ Texture, BlockDirMap, DirMap },
-    consts::{ CHUNK_SIZE, CHUNK_HEIGHT },
-};
+use crate::lib_root::{ block::Block, textures::Texture, consts::{ CHUNK_SIZE, CHUNK_HEIGHT } };
+
 use crate::Direction;
+use crate::BlockDirMap;
+use crate::DirMap;
 
 type Vertex = [f32; 3];
 type RawMeshMap = BlockDirMap<Mesh>;
