@@ -9,8 +9,7 @@ use crate::lib_root::{
     chunk::Chunk,
     chunk_gen::{ generate, get_chunk_positions },
     consts::{ CHUNK_SIZE, RENDER_DISTANCE },
-    block::Block,
-    textures::{ Textures, BlockDirMap },
+    textures::{ BlockDirMap, Textures },
 };
 
 type MultiMeshMap = BlockDirMap<Handle<Mesh>>;
@@ -93,7 +92,17 @@ impl ChunkManager {
             ))
             .with_children(|parent| {
                 for (block, dirmap) in mesh_map {
-                    todo!();
+                    for (dir, mesh) in dirmap {
+                        let mesh_material = if
+                            let Some(material) = textures.get(block, dir, asset_server, materials)
+                        {
+                            MeshMaterial3d(material)
+                        } else {
+                            continue;
+                        };
+
+                        parent.spawn((Mesh3d(mesh), mesh_material));
+                    }
                 }
             })
             .id()
@@ -225,12 +234,10 @@ impl ChunkManager {
             return None;
         };
 
-        todo!();
-
         let mut chunk_mesh_map: MultiMeshMap = HashMap::new();
         for (block, mesh) in chunk.mesh() {
             for (dir, mesh) in mesh {
-                chunk_mesh_map.insert(block, meshes.add(mesh));
+                chunk_mesh_map.entry(block).or_default().insert(dir, meshes.add(mesh));
             }
         }
 

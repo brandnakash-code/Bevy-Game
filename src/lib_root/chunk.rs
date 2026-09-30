@@ -1,7 +1,6 @@
 use bevy::{ asset::RenderAssetUsages, mesh::{ Indices, PrimitiveTopology }, prelude::* };
 
 use std::cmp::{ max, min };
-use std::collections::HashMap;
 use std::ops::{ Deref, DerefMut };
 
 use thiserror::Error;
@@ -37,10 +36,6 @@ struct TriangleData {
 }
 
 impl TriangleData {
-    fn new() -> Self {
-        Self::default()
-    }
-
     fn mesh(self) -> Mesh {
         Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::default())
             .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
@@ -135,13 +130,12 @@ impl Chunk {
                         matches!(block.texture(Direction::PosX), Texture::Empty) ||
                         matches!(block.texture(Direction::NegZ), Texture::Empty) ||
                         matches!(block.texture(Direction::PosZ), Texture::Empty);
+
                     if is_empty_in_any_direction {
                         continue;
                     }
 
-                    let dirmap: &mut DirMap<TriangleData> = triangle_map
-                        .entry(block)
-                        .or_insert_with(|| HashMap::new());
+                    let dirmap: &mut DirMap<TriangleData> = triangle_map.entry(block).or_default();
 
                     if !self.culls((x as isize) + 1, y as isize, z as isize) {
                         add_face(dirmap, x, y, z, Direction::PosX);
@@ -212,12 +206,6 @@ impl Chunk {
             z < (CHUNK_SIZE as isize)
     }
 
-    /// Returns the block at valid local coordinates.
-    fn get(&self, x: usize, y: usize, z: usize) -> Block {
-        assert!(Chunk::is_in(x as isize, y as isize, z as isize));
-        self[x][y][z]
-    }
-
     /// Returns whether the block at local coordinates blocks visibility.
     fn culls(&self, x: isize, y: isize, z: isize) -> bool {
         if !Chunk::is_in(x, y, z) {
@@ -231,7 +219,7 @@ impl Chunk {
 }
 
 fn add_face(data: &mut DirMap<TriangleData>, x: usize, y: usize, z: usize, dir: Direction) {
-    let dir_map = data.entry(dir).or_insert_with(|| TriangleData::new());
+    let dir_map = data.entry(dir).or_default();
     let start = dir_map.positions.len() as u32;
     let (x, y, z) = (x as f32, y as f32, z as f32);
 

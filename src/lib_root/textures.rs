@@ -54,7 +54,7 @@ impl Textures {
     ) -> Material {
         self.0
             .entry(block)
-            .or_insert(HashMap::new())
+            .or_default()
             .entry(dir)
             .or_insert_with(||
                 block

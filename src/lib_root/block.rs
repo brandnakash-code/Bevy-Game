@@ -3,16 +3,11 @@ use bevy::prelude::*;
 use crate::lib_root::textures::Texture;
 use crate::Direction;
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Reflect, Default)]
 pub enum Block {
     Air,
+    #[default]
     Grass,
-}
-
-impl Default for Block {
-    fn default() -> Self {
-        Self::Air
-    }
 }
 
 impl Block {
