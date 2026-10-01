@@ -9,8 +9,9 @@ use crate::lib_root::{
     chunk::Chunk,
     chunk_gen::{ generate, get_chunk_positions },
     consts::{ CHUNK_SIZE, RENDER_DISTANCE },
-    textures::{ BlockDirMap, Textures },
+    textures::Textures,
 };
+use crate::BlockDirMap;
 
 type MultiMeshMap = BlockDirMap<Handle<Mesh>>;
 
@@ -53,59 +54,58 @@ impl ChunkManager {
         textures: &mut Textures,
         asset_server: &AssetServer
     ) -> Result<Entity> {
-        let mesh_map: MultiMeshMap = if let Some(mesh_map) = self.meshes.get(&chunk_pos) {
-            mesh_map.clone()
-        } else {
-            self.update_mesh(chunk_pos, meshes).ok_or(Error { pos: chunk_pos })?
-        };
+        if !self.meshes.contains_key(&chunk_pos) {
+            self.update_mesh(chunk_pos, meshes).ok_or(Error { pos: chunk_pos })?;
+        }
 
-        Ok(
-            self.load_chunk_from_meshmap(
-                chunk_pos,
-                mesh_map,
-                commands,
-                materials,
-                textures,
-                asset_server
-            )
-        )
+        self.load_chunk_from_meshmap(chunk_pos, commands, materials, textures, asset_server)
     }
 
     /// Loads a chunk from a meshmap, regardless of the state of the chunk there.
     fn load_chunk_from_meshmap(
         &mut self,
         chunk_pos: IVec2,
-        mesh_map: MultiMeshMap,
         commands: &mut Commands,
         materials: &mut Assets<StandardMaterial>,
         textures: &mut Textures,
         asset_server: &AssetServer
-    ) -> Entity {
-        commands
-            .spawn((
-                Transform::from_xyz(
-                    (chunk_pos.x as f32) * (CHUNK_SIZE as f32),
-                    0.0,
-                    (chunk_pos.y as f32) * (CHUNK_SIZE as f32)
-                ),
-                Visibility::default(),
-            ))
-            .with_children(|parent| {
-                for (block, dirmap) in mesh_map {
-                    for (dir, mesh) in dirmap {
-                        let mesh_material = if
-                            let Some(material) = textures.get(block, dir, asset_server, materials)
-                        {
-                            MeshMaterial3d(material)
-                        } else {
-                            continue;
-                        };
+    ) -> Result<Entity> {
+        if !self.meshes.contains_key(&chunk_pos) {
+            return Err(Error { pos: chunk_pos });
+        }
 
-                        parent.spawn((Mesh3d(mesh), mesh_material));
+        Ok(
+            commands
+                .spawn((
+                    Transform::from_xyz(
+                        (chunk_pos.x as f32) * (CHUNK_SIZE as f32),
+                        0.0,
+                        (chunk_pos.y as f32) * (CHUNK_SIZE as f32)
+                    ),
+                    Visibility::default(),
+                ))
+                .with_children(|parent| {
+                    for (block, dirmap) in self.meshes[&chunk_pos].iter() {
+                        for (dir, mesh) in dirmap.iter() {
+                            let mesh_material = if
+                                let Some(material) = textures.get(
+                                    *block,
+                                    *dir,
+                                    asset_server,
+                                    materials
+                                )
+                            {
+                                MeshMaterial3d(material.0)
+                            } else {
+                                continue;
+                            };
+
+                            parent.spawn((Mesh3d(mesh.clone()), mesh_material));
+                        }
                     }
-                }
-            })
-            .id()
+                })
+                .id()
+        )
     }
 
     /// Returns the chunk currently used as the loading center, if one is set.
@@ -228,20 +228,24 @@ impl ChunkManager {
     }
 
     /// Builds and caches meshes for a generated chunk, or returns `None` if it is absent.
-    fn update_mesh(&mut self, chunk_pos: IVec2, meshes: &mut Assets<Mesh>) -> Option<MultiMeshMap> {
+    fn update_mesh(
+        &mut self,
+        chunk_pos: IVec2,
+        meshes: &mut Assets<Mesh>
+    ) -> Option<&MultiMeshMap> {
         let Some(chunk) = self.chunks.get(&chunk_pos) else {
             self.meshes.remove(&chunk_pos);
             return None;
         };
 
-        let mut chunk_mesh_map: MultiMeshMap = HashMap::new();
+        let mut chunk_mesh_map: MultiMeshMap = BlockDirMap::default();
         for (block, mesh) in chunk.mesh() {
             for (dir, mesh) in mesh {
                 chunk_mesh_map.entry(block).or_default().insert(dir, meshes.add(mesh));
             }
         }
 
-        self.meshes.insert(chunk_pos, chunk_mesh_map.clone());
-        Some(chunk_mesh_map)
+        self.meshes.insert(chunk_pos, chunk_mesh_map);
+        Some(&self.meshes[&chunk_pos])
     }
 }
