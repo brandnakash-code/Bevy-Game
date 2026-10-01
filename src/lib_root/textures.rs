@@ -6,10 +6,15 @@ use crate::Direction;
 use crate::BlockDirMap;
 use crate::MaterialHandle;
 
+/// Describes how a block face should be rendered when it is visible.
 pub enum Texture {
+    /// No visible face should be created.
     Empty,
+    /// A flat solid color.
     Color(Color),
+    /// A texture loaded from an asset path.
     Path(&'static str),
+    /// A texture tinted with a solid overlay color.
     Tinted(&'static str, Color),
 }
 
@@ -34,6 +39,7 @@ impl Texture {
     }
 }
 
+/// Material cache for every block-direction combination that has been requested.
 #[derive(Resource, Default)]
 pub struct Textures(BlockDirMap<Option<MaterialHandle>>);
 

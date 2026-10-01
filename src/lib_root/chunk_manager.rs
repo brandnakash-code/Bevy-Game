@@ -15,13 +15,17 @@ use crate::BlockDirMap;
 
 type MultiMeshMap = BlockDirMap<Handle<Mesh>>;
 
+/// The result type returned by chunk-loading operations.
 pub type Result<T> = std::result::Result<T, Error>;
+
+/// Returned when an operation requests a chunk that has not been generated or loaded.
 #[derive(Error, Debug, PartialEq)]
 #[error("There is no chunk at (pos)")]
 pub struct Error {
     pos: IVec2,
 }
 
+/// Tracks the generated chunks, pending async jobs, and spawned Bevy entities for a loaded world.
 #[derive(Resource, Default)]
 pub struct ChunkManager {
     entities: HashMap<IVec2, Entity>,

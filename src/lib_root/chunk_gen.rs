@@ -27,17 +27,18 @@ type NoiseMap = [[f64; CHUNK_SIZE]; CHUNK_SIZE];
 
 const SPACES: usize = CHUNK_SIZE.div_ceil(NOISE_INTERPOLATION);
 
-/// Converts a local chunk X coordinate and chunk coordinates into a world X coordinate.
+/// Converts a local chunk X coordinate into world-space X coordinates for the chunk origin.
 pub fn local_to_world_x(a: usize, chunk_coords: IVec2) -> i32 {
     chunk_coords.x * (CHUNK_SIZE as i32) + (a as i32)
 }
 
-/// Converts a local chunk Z coordinate and chunk coordinates into a world Z coordinate.
+/// Converts a local chunk Z coordinate into world-space Z coordinates for the chunk origin.
 pub fn local_to_world_z(a: usize, chunk_coords: IVec2) -> i32 {
     chunk_coords.y * (CHUNK_SIZE as i32) + (a as i32)
 }
 
-/// Generates terrain blocks for the chunk at the given chunk coordinates.
+/// Generates terrain for a chunk using layered Perlin noise and fills the chunk column up to the
+/// computed surface height.
 pub fn generate(chunk_pos: IVec2) -> Chunk {
     let perlin = Perlin::new(SEED);
 
@@ -105,7 +106,7 @@ fn get_noises(perlin: &Perlin, chunk_pos: IVec2, freq: f64) -> NoiseMap {
                 (world_x as f64) / WORLD_SCALE / freq,
                 (world_z as f64) / WORLD_SCALE / freq,
             ]);
-            
+
             samples[x][z] = noise_value;
         }
     }

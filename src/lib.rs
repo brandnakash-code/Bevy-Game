@@ -1,3 +1,9 @@
+//! Voxel world utilities and shared data structures used by the Bevy terrain prototype.
+//!
+//! The crate is organized around chunk generation, chunk streaming, and face-based mesh
+//! rendering. Most gameplay logic lives in the `lib_root` module, while the items exported
+//! here provide the coordinate and map helpers that those systems depend on.
+
 pub mod lib_root;
 
 use bevy::prelude::*;
@@ -7,6 +13,7 @@ use std::collections::hash_map;
 
 use crate::lib_root::block::Block;
 
+/// Standard axis-aligned directions used to identify voxel faces.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Direction {
     PosX,
@@ -17,6 +24,7 @@ pub enum Direction {
     NegZ,
 }
 
+/// A map keyed by voxel block type.
 #[derive(Deref, DerefMut, Default)]
 pub struct BlockMap<T>(HashMap<Block, T>);
 
@@ -36,6 +44,7 @@ impl<T> IntoIterator for BlockMap<T> {
     }
 }
 
+/// A map keyed by a cardinal direction.
 #[derive(Deref, DerefMut, Default)]
 pub struct DirMap<T>(HashMap<Direction, T>);
 
@@ -55,6 +64,7 @@ impl<T> IntoIterator for DirMap<T> {
     }
 }
 
+/// A nested map where each block stores a directional map.
 #[derive(Deref, DerefMut, Default)]
 pub struct BlockDirMap<T>(BlockMap<DirMap<T>>);
 
@@ -74,5 +84,6 @@ impl<T> IntoIterator for BlockDirMap<T> {
     }
 }
 
+/// A thin wrapper around a Bevy material handle for cached voxel textures.
 #[derive(Deref, DerefMut, Default, Clone)]
 pub struct MaterialHandle(Handle<StandardMaterial>);

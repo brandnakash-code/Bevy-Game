@@ -80,6 +80,7 @@ impl DerefMut for TriangleMap {
     }
 }
 
+/// A fixed-size voxel volume representing the terrain within one chunk.
 #[derive(Resource)]
 pub struct Chunk([[[Block; CHUNK_SIZE]; CHUNK_HEIGHT]; CHUNK_SIZE]);
 
