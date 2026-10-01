@@ -1,9 +1,9 @@
 use bevy::{ input::mouse::MouseMotion, prelude::*, window::{ CursorGrabMode, CursorOptions } };
 
-use bevy_game::lib_root::{
+use rust_voxel_game::lib_root::{
     chunk_gen::world_to_chunk_coords,
     chunk_manager::ChunkManager,
-    textures::Textures,
+    textures::TextureCache,
 };
 
 #[derive(Component)]
@@ -14,7 +14,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
         .init_resource::<ChunkManager>()
-        .init_resource::<Textures>()
+        .init_resource::<TextureCache>()
         .add_systems(Update, (
             camera_movement,
             update_visible_chunks,
@@ -51,7 +51,7 @@ fn update_visible_chunks(
     mut chunk_manager: ResMut<ChunkManager>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut textures: ResMut<Textures>,
+    mut textures: ResMut<TextureCache>,
     asset_server: Res<AssetServer>
 ) {
     let Ok(player_transform) = player_query.single() else {
@@ -79,7 +79,7 @@ fn finish_chunk_generation(
     mut chunk_manager: ResMut<ChunkManager>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut textures: ResMut<Textures>,
+    mut textures: ResMut<TextureCache>,
     asset_server: Res<AssetServer>
 ) {
     chunk_manager.poll_generation_tasks(

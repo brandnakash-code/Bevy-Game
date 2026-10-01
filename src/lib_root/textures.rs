@@ -41,9 +41,9 @@ impl Texture {
 
 /// Material cache for every block-direction combination that has been requested.
 #[derive(Resource, Default)]
-pub struct Textures(BlockDirMap<Option<MaterialHandle>>);
+pub struct TextureCache(BlockDirMap<Option<MaterialHandle>>);
 
-impl Textures {
+impl TextureCache {
     /// Returns the cached material handle for a block, creating it on first use.
     ///
     /// The returned handle is `None` for blocks whose texture is [`Texture::Empty`].

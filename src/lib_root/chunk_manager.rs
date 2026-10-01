@@ -9,7 +9,7 @@ use crate::lib_root::{
     chunk::Chunk,
     chunk_gen::{ generate, get_chunk_positions },
     consts::{ CHUNK_SIZE, RENDER_DISTANCE },
-    textures::Textures,
+    textures::TextureCache,
 };
 use crate::BlockDirMap;
 
@@ -55,7 +55,7 @@ impl ChunkManager {
         meshes: &mut Assets<Mesh>,
         commands: &mut Commands,
         materials: &mut Assets<StandardMaterial>,
-        textures: &mut Textures,
+        textures: &mut TextureCache,
         asset_server: &AssetServer
     ) -> Result<Entity> {
         if !self.meshes.contains_key(&chunk_pos) {
@@ -71,7 +71,7 @@ impl ChunkManager {
         chunk_pos: IVec2,
         commands: &mut Commands,
         materials: &mut Assets<StandardMaterial>,
-        textures: &mut Textures,
+        textures: &mut TextureCache,
         asset_server: &AssetServer
     ) -> Result<Entity> {
         if !self.meshes.contains_key(&chunk_pos) {
@@ -126,7 +126,7 @@ impl ChunkManager {
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<StandardMaterial>,
-        textures: &mut Textures,
+        textures: &mut TextureCache,
         asset_server: &AssetServer
     ) {
         if let Some(current_center) = self.center && current_center == center {
@@ -176,7 +176,7 @@ impl ChunkManager {
         commands: &mut Commands,
         meshes: &mut Assets<Mesh>,
         materials: &mut Assets<StandardMaterial>,
-        textures: &mut Textures,
+        textures: &mut TextureCache,
         asset_server: &AssetServer
     ) {
         let Some(center) = self.center else {

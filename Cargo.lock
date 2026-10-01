@@ -801,16 +801,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevy_game"
-version = "0.1.0"
-dependencies = [
- "bevy",
- "futures-lite",
- "noise",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "bevy_gilrs"
 version = "0.19.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4518,6 +4508,16 @@ dependencies = [
  "serde_derive",
  "typeid",
  "unicode-ident",
+]
+
+[[package]]
+name = "rust_voxel_game"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "futures-lite",
+ "noise",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
