@@ -5,13 +5,12 @@ use std::collections::{ HashMap, HashSet };
 use futures_lite::future;
 use thiserror::Error;
 
-use crate::lib_root::{
-    chunk::Chunk,
-    chunk_gen::{ generate, get_chunk_positions },
-    consts::{ CHUNK_SIZE, RENDER_DISTANCE },
-    textures::TextureCache,
-};
+use crate::consts::{ CHUNK_SIZE, RENDER_DISTANCE };
+use crate::chunk::generate;
+use crate::chunk::generation::get_chunk_positions;
 use crate::BlockDirMap;
+use crate::Chunk;
+use crate::TextureCache;
 
 type MultiMeshMap = BlockDirMap<Handle<Mesh>>;
 

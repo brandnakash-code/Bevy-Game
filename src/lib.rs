@@ -1,17 +1,24 @@
 //! Voxel world utilities and shared data structures used by the Bevy terrain prototype.
 //!
 //! The crate is organized around chunk generation, chunk streaming, and face-based mesh
-//! rendering. Most gameplay logic lives in the `lib_root` module, while the items exported
-//! here provide the coordinate and map helpers that those systems depend on.
+//! rendering. The public modules and re-exports are listed first, followed by dependencies
+//! and shared coordinate and map helpers.
 
-pub mod lib_root;
+pub mod block;
+pub mod chunk;
+pub mod consts;
+pub mod texture;
+
+pub use block::Block;
+pub use chunk::Chunk;
+pub use chunk::manager::ChunkManager;
+pub use texture::Texture;
+pub use texture::cache::TextureCache;
 
 use bevy::prelude::*;
 
-use std::collections::HashMap;
 use std::collections::hash_map;
-
-use crate::lib_root::block::Block;
+use std::collections::HashMap;
 
 /// Standard axis-aligned directions used to identify voxel faces.
 #[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]

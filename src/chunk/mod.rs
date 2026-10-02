@@ -1,3 +1,8 @@
+pub mod generation;
+pub mod manager;
+
+pub use generation::generate;
+
 use bevy::{ asset::RenderAssetUsages, mesh::{ Indices, PrimitiveTopology }, prelude::* };
 
 use std::cmp::{ max, min };
@@ -5,9 +10,10 @@ use std::ops::{ Deref, DerefMut };
 
 use thiserror::Error;
 
-use crate::lib_root::{ block::Block, textures::Texture, consts::{ CHUNK_SIZE, CHUNK_HEIGHT } };
-
+use crate::block::Block;
+use crate::consts::{ CHUNK_HEIGHT, CHUNK_SIZE };
 use crate::Direction;
+use crate::texture::Texture;
 use crate::BlockDirMap;
 use crate::DirMap;
 

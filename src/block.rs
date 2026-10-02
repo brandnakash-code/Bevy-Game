@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
-use crate::lib_root::textures::Texture;
 use crate::Direction;
+use crate::Texture;
 
 const fn rgb(red: u8, green: u8, blue: u8) -> Color {
     Color::srgb(red as f32, green as f32, blue as f32)

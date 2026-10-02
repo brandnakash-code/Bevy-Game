@@ -13,14 +13,22 @@ A lightweight voxel terrain prototype built with Bevy. The project generates a c
 ## Project layout
 
 - `src/main.rs` sets up the Bevy app, camera, lighting, and runtime systems.
-- `src/lib.rs` defines shared helpers and directional map types used across the voxel system.
-- `src/lib_root/` contains the gameplay and world-generation components:
-  - `block.rs` defines the voxel block types and texture lookup rules.
-  - `chunk.rs` contains the in-memory chunk representation and mesh-building logic.
-  - `chunk_gen.rs` handles terrain generation, chunk coordinate conversion, and noise sampling.
-  - `chunk_manager.rs` schedules async chunk generation and manages loaded chunk entities.
-  - `textures.rs` caches Bevy materials for each block face.
-  - `consts.rs` stores chunk size, world-generation tuning, and render distance values.
+- `src/lib.rs` declares and re-exports the library modules, and defines shared coordinate and map types.
+- `src/block.rs` defines voxel block types and their texture lookup rules.
+- `src/chunk/` contains the in-memory chunk representation, mesh generation, terrain generation, and chunk streaming.
+- `src/texture/` describes block textures and caches Bevy materials for each block face.
+- `src/consts.rs` stores chunk size, world-generation tuning, and render-distance values.
+
+## Rust source organization
+
+Keep each Rust source file's header in this order, with implementation code after the imports:
+
+1. `pub mod` declarations
+2. `pub use` re-exports
+3. `use bevy::...` imports
+4. `use std::...` imports
+5. Imports from other crates
+6. `use crate::...` imports
 
 ## Running the game
 

@@ -4,23 +4,21 @@ use std::collections::HashSet;
 
 use noise::{ NoiseFn, Perlin };
 
-use crate::lib_root::{
-    consts::{
-        BASE_HEIGHT,
-        CHUNK_HEIGHT,
-        CHUNK_SIZE,
-        HIGH_AMPLITUDE,
-        HIGH_FREQUENCY,
-        LOW_AMPLITUDE,
-        LOW_FREQUENCY,
-        MED_AMPLITUDE,
-        MED_FREQUENCY,
-        NOISE_INTERPOLATION,
-        SEED,
-        WORLD_SCALE,
-    },
-    chunk::Chunk,
+use crate::consts::{
+    BASE_HEIGHT,
+    CHUNK_HEIGHT,
+    CHUNK_SIZE,
+    HIGH_AMPLITUDE,
+    HIGH_FREQUENCY,
+    LOW_AMPLITUDE,
+    LOW_FREQUENCY,
+    MED_AMPLITUDE,
+    MED_FREQUENCY,
+    NOISE_INTERPOLATION,
+    SEED,
+    WORLD_SCALE,
 };
+use crate::Chunk;
 
 type InterpolatedNoiseMap = [[f64; SPACES]; SPACES];
 type NoiseMap = [[f64; CHUNK_SIZE]; CHUNK_SIZE];

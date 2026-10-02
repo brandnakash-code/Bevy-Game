@@ -1,10 +1,8 @@
 use bevy::{ input::mouse::MouseMotion, prelude::*, window::{ CursorGrabMode, CursorOptions } };
 
-use rust_voxel_game::lib_root::{
-    chunk_gen::world_to_chunk_coords,
-    chunk_manager::ChunkManager,
-    textures::TextureCache,
-};
+use rust_voxel_game::chunk::generation::world_to_chunk_coords;
+use rust_voxel_game::ChunkManager;
+use rust_voxel_game::TextureCache;
 
 #[derive(Component)]
 struct PlayerCamera;
